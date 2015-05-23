@@ -1,0 +1,6 @@
+kernel/*
+kernel/.*
+kernel/*.mod.c
+!kernel/*.c
+!kernel/*.h
+!kernel/Makefile
