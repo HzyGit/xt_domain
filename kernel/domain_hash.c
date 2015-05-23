@@ -4,6 +4,13 @@
 
 #include "domain_hash.h"
 
+/// @brief 依据ip查找域名 
+/// @retval 成功返回域名,否则返回NULL
+char * domain_hash_find_name(__be32 ip){
+	return NULL;
+}
+EXPORT_SYMBOL(domain_hash_find_name);
+
 static int __init domain_hash_init(void){
 	pr_info("load domain_hahs ok!\n");
 	return 0;
