@@ -97,8 +97,46 @@ static void free_ip_domain_map(struct ip_domain_map *map){
 	spin_unlock(&map->lock);
 }
 
-/// @brief 添加ip,domain到map
+/// @brief 依据ip查找domain
+/// @retval 成功返回struct ip_domain指针,否则返回NULL
+static struct ip_domain* __find_ip_domain_map(struct ip_domain_map *map,__be32 ip,unsigned int key){
+	struct hlist_head *head=NULL;
+	struct ip_domain *d=NULL;
+	head=map->hash+key;
+	hlist_for_each_entry(d,head,node){
+		if(d->ip==ip)
+			return d;
+	}
+	return false;
+}
 
+/// @brief 添加ip,domain到map
+static void add_ip_domain_map(struct ip_domain_map *map,__be32 ip,const char *name,__u16 ttl){
+	struct ip_domain *d=NULL;
+	unsigned int key=0;
+
+	key=hash_key(ip)%IP_DOMAIN_MAP_NUM;
+	if(strlen(name)>IP_DOMAIN_MAP_NUM-1)
+		return;
+	spin_lock(&map->lock);
+	d=__find_ip_domain_map(map,ip,key);
+	if(d==NULL){
+		d=alloc_ip_domain();
+		if(NULL!=d){
+			d->ip=ip;
+			strcpy(d->name,name);
+			d->ttl=ttl;
+			d->map=map;
+			hlist_add(&d->node,map->hash+key);
+			set_ip_domain_timeoute(d,1);
+		}
+		spin_unlock(&map->lock);
+		return;
+	}
+	strcpy(d->name,name);
+	d->ttl=ttl;
+	spin_unlock(&map->lock);
+};
 
 /// @brief hash函数
 unsigned int hash_key(__be32 ip){
@@ -109,7 +147,24 @@ unsigned int hash_key(__be32 ip){
 /// @brief 依据ip查找域名 
 /// @retval 成功返回域名,否则返回NULL
 char * domain_hash_find_name(__be32 ip){
-	return NULL;
+	unsigned int key=hash_key(ip);
+	struct hlist_head *head;
+	struct ip_domain *d=NULL;
+	char *ret=NULL;
+	key%=IP_DOMAIN_MAP_NUM;
+	spin_lock(&map.lock);
+	d=__find_ip_domain_map(&map,ip,key);
+	if(d==NULL){
+		spin_unlock(&map.lock);
+		return NULL;
+	}
+	ret=kmalloc(strlen(d->name)+1,GFP_ATOMIC);
+	if(NULL==ret){
+		return NULL;
+		spin_unlock(&map.lock);
+	}
+	strcpy(ret,d->name);
+	return ret;
 }
 EXPORT_SYMBOL(domain_hash_find_name);
 
