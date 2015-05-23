@@ -17,6 +17,7 @@ struct ip_domain{
 	struct hlist_node node;
 	__be32 ip;
 	const char name[NAME_MAX];
+	__u16 ttl;   ///< dns rr ttl
 	struct ip_domain_map *map;
 	struct timer_list timer;
 };
@@ -25,7 +26,6 @@ struct ip_domain{
 struct ip_domain_map{
 	struct hlist_head hash[IP_DOMAIN_MAP_NUM];
 	spinlock_t lock;
-
 };
 
 static struct ip_domain_map map;
@@ -34,9 +34,16 @@ static struct ip_domain_map map;
 static void time_out(unsigned long data){
 	struct ip_domain *d=(struct ip_domain*)data;
 	spin_lock(&d->map->lock);
-	hlist_del(&d->node);
+	if(d->ttl==0){
+		hlist_del(&d->node);
+		spin_unlock(&d->map->lock);
+		kfree(d);
+		return;
+	}
+	d->ttl--;
 	spin_unlock(&d->map->lock);
-	kfree(d);
+	mod_timer(&d->timer,jiffies+1);
+	return;
 }
 
 /// @brief 分配ip_domain
